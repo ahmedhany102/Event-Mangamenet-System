@@ -1,0 +1,2 @@
+ALTER TABLE public.tickets
+ADD COLUMN IF NOT EXISTS is_checked_in BOOLEAN NOT NULL DEFAULT false;
