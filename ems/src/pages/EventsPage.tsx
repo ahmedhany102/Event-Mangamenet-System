@@ -25,7 +25,10 @@ export default function EventsPage() {
       setLoading(true)
       setError(null)
 
-      const { data, error: queryError } = await supabase.from('events').select('*')
+      const { data, error: queryError } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_date', { ascending: true })
 
       if (queryError) {
         setError(queryError.message)

@@ -73,7 +73,7 @@ export default function CreateAttendeePage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Add Attendee</h1>
         <Link
-          to="/attendees"
+          to="/admin/attendees"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
         >
           Back to Attendees

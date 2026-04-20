@@ -1,12 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-
-type OrganizationOption = {
-  id: number
-  name: string
-}
 
 type FormState = {
   name: string
@@ -15,7 +10,6 @@ type FormState = {
   end_date: string
   budget: string
   status: string
-  organization_id: string
   venue_id: string
 }
 
@@ -26,39 +20,14 @@ const initialForm: FormState = {
   end_date: '',
   budget: '0',
   status: 'planned',
-  organization_id: '',
   venue_id: '',
 }
 
 export default function CreateEventPage() {
   const [form, setForm] = useState<FormState>(initialForm)
-  const [organizations, setOrganizations] = useState<OrganizationOption[]>([])
-  const [loadingOrganizations, setLoadingOrganizations] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function fetchOrganizations() {
-      setLoadingOrganizations(true)
-
-      const { data, error: queryError } = await supabase
-        .from('organizations')
-        .select('id,name')
-        .order('id', { ascending: true })
-
-      if (queryError) {
-        setError(queryError.message)
-        setOrganizations([])
-      } else {
-        setOrganizations((data as OrganizationOption[]) ?? [])
-      }
-
-      setLoadingOrganizations(false)
-    }
-
-    void fetchOrganizations()
-  }, [])
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -73,10 +42,6 @@ export default function CreateEventPage() {
 
     const budget = Number(form.budget)
     if (Number.isNaN(budget) || budget < 0) return 'Budget must be greater than or equal to 0.'
-
-    if (!form.organization_id) {
-      return 'Please select an organization.'
-    }
 
     if (!form.venue_id || Number(form.venue_id) <= 0) {
       return 'Venue ID is required.'
@@ -105,7 +70,6 @@ export default function CreateEventPage() {
       end_date: form.end_date,
       budget: Number(form.budget),
       status: form.status,
-      organization_id: Number(form.organization_id),
       venue_id: Number(form.venue_id),
     }
 
@@ -127,7 +91,7 @@ export default function CreateEventPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Create Event</h1>
         <Link
-          to="/events"
+          to="/admin/events"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
         >
           Back to Events
@@ -135,18 +99,6 @@ export default function CreateEventPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-slate-200 bg-white p-6">
-        {!loadingOrganizations && organizations.length === 0 ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            <p>Please create an organization first</p>
-            <Link
-              to="/organizations/create"
-              className="mt-2 inline-flex rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-            >
-              Create Organization
-            </Link>
-          </div>
-        ) : null}
-
         <div>
           <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
             Name
@@ -237,29 +189,6 @@ export default function CreateEventPage() {
               <option value="cancelled">cancelled</option>
             </select>
           </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="organization_id" className="mb-1 block text-sm font-medium text-slate-700">
-              Organization
-            </label>
-            <select
-              id="organization_id"
-              value={form.organization_id}
-              onChange={(e) => updateField('organization_id', e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-              required
-              disabled={loadingOrganizations || organizations.length === 0}
-            >
-              <option value="">Select organization</option>
-              {organizations.map((organization) => (
-                <option key={organization.id} value={String(organization.id)}>
-                  {organization.id} - {organization.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div>
             <label htmlFor="venue_id" className="mb-1 block text-sm font-medium text-slate-700">
@@ -283,7 +212,7 @@ export default function CreateEventPage() {
         <div>
           <button
             type="submit"
-            disabled={loading || loadingOrganizations || organizations.length === 0}
+            disabled={loading}
             className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Creating...' : 'Create Event'}

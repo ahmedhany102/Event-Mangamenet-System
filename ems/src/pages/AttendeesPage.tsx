@@ -39,22 +39,14 @@ export default function AttendeesPage() {
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Attendees</h1>
-          <p className="mt-2 text-sm text-slate-600">Manage attendee records and registrations.</p>
+          <p className="mt-2 text-sm text-slate-600">View attendee records and registration participants.</p>
         </div>
-        <div className="flex gap-3">
-          <Link
-            to="/event-registration"
-            className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
-          >
-            Event Registration
-          </Link>
-          <Link
-            to="/attendees/create"
-            className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-          >
-            Add Attendee
-          </Link>
-        </div>
+        <Link
+          to="/admin/attendees/create"
+          className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+        >
+          Add Attendee
+        </Link>
       </header>
 
       {loading ? (

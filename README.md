@@ -531,7 +531,7 @@ Implemented: ✔
 
 Description:
 - Each ticket generates a QR code
-- QR code represents ticket_code
+- QR code encodes JSON payload with ticket_code and event_id
 - Can be used for event check-in
 
 ### Check-in System
@@ -549,5 +549,35 @@ Description:
 - Organizations can be created from UI
 - Used as parent entity for events and employees
 - All references use dropdown instead of manual IDs
-#   E v e n t - M a n g a m e n e t - S y s t e m  
- 
+
+## System Flow
+
+User Flow:
+- Browse events from `/`
+- Open event details at `/events/:id`
+- Register directly inside that event page
+- Receive ticket code + attendance number + QR payload
+
+Admin Flow:
+- Login at `/login`
+- Access dashboard at `/admin/dashboard`
+- Manage events from `/admin/events`
+- Perform check-in at `/admin/checkin`
+
+## Business Rules
+
+- QR payload contains `ticket_code` and `event_id` as JSON.
+- Ticket is valid only for its own event.
+- Selected event in check-in must match ticket event.
+- Duplicate check-in is blocked.
+- One attendee can have only one ticket per event.
+- One attendee can register only once per event.
+
+## Database Relationships
+
+- `events (1) -> (many) event_attendees`
+- `attendees (1) -> (many) event_attendees`
+- `events (1) -> (many) tickets`
+- `attendees (1) -> (many) tickets`
+- `event_attendees` has unique `(event_id, attendee_id)`.
+- `tickets` has unique `ticket_code` and unique `(event_id, attendee_id)`.

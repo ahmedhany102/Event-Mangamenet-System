@@ -21,7 +21,6 @@ type EventAttendeeRow = {
   event_id: number
   attendee_id: number
   attendance_status: 'registered' | 'attended' | 'cancelled' | string
-  registration_date?: string | null
 }
 
 type TicketRow = {
@@ -107,8 +106,8 @@ export default function DashboardPage() {
         supabase.from('organizations').select('id,name'),
         supabase
           .from('event_attendees')
-          .select('event_id,attendee_id,attendance_status,registration_date')
-          .order('registration_date', { ascending: false }),
+          .select('event_id,attendee_id,attendance_status')
+          .order('event_id', { ascending: false }),
         supabase
           .from('tickets')
           .select('id,ticket_code,event_id,attendee_id,is_checked_in,issued_at')
@@ -168,11 +167,9 @@ export default function DashboardPage() {
 
   const filteredEventAttendees = useMemo(() => {
     return eventAttendees.filter((row) => {
-      const eventMatch = selectedEventId === 'all' || String(row.event_id) === selectedEventId
-      const dateMatch = !since || (row.registration_date ? row.registration_date >= since.slice(0, 10) : true)
-      return eventMatch && dateMatch
+      return selectedEventId === 'all' || String(row.event_id) === selectedEventId
     })
-  }, [eventAttendees, selectedEventId, since])
+  }, [eventAttendees, selectedEventId])
 
   const filteredAttendees = attendees
 
@@ -215,16 +212,25 @@ export default function DashboardPage() {
   }, [tasks])
 
   const recentActivity = useMemo<RecentActivityItem[]>(() => {
+    const issuedAtByEventAttendee = new Map<string, string>()
+    filteredTickets.forEach((ticket) => {
+      const key = `${ticket.event_id}-${ticket.attendee_id}`
+      if (!issuedAtByEventAttendee.has(key) && ticket.issued_at) {
+        issuedAtByEventAttendee.set(key, ticket.issued_at)
+      }
+    })
+
     const registrationItems: RecentActivityItem[] = filteredEventAttendees.slice(0, 10).map((row, index) => {
       const eventName = events.find((event) => event.id === row.event_id)?.name ?? `Event ${row.event_id}`
       const attendeeName = attendeeById.get(row.attendee_id) ?? `Attendee ${row.attendee_id}`
+      const activityDate = issuedAtByEventAttendee.get(`${row.event_id}-${row.attendee_id}`) ?? new Date(0).toISOString()
 
       return {
         id: `registration-${row.event_id}-${row.attendee_id}-${index}`,
         type: 'registration',
         title: `New attendee registered for ${eventName}`,
         subtitle: attendeeName,
-        createdAt: row.registration_date ? `${row.registration_date}T00:00:00.000Z` : new Date(0).toISOString(),
+        createdAt: activityDate,
       }
     })
 

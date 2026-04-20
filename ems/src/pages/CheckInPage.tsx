@@ -1,6 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+
+type EventOption = {
+  id: number
+  name: string
+}
 
 type TicketRow = {
   id: number
@@ -10,53 +15,107 @@ type TicketRow = {
   is_checked_in: boolean
 }
 
+type EventAttendeeRow = {
+  attendance_status: 'registered' | 'attended' | string
+}
+
 function parseTicketInput(input: string) {
   const trimmed = input.trim()
 
   if (!trimmed) {
-    return { type: 'invalid' as const, value: '' }
+    return null
   }
 
-  if (trimmed.startsWith('EMS|')) {
-    const parts = trimmed.split('|')
-    const ticketCode = parts[1]?.trim() ?? ''
-    if (ticketCode) {
-      return { type: 'ticket_code' as const, value: ticketCode }
+  try {
+    const parsed = JSON.parse(trimmed) as { ticket_code?: unknown; event_id?: unknown }
+    const ticketCode = typeof parsed.ticket_code === 'string' ? parsed.ticket_code.trim() : ''
+    const qrEventId =
+      typeof parsed.event_id === 'number'
+        ? parsed.event_id
+        : typeof parsed.event_id === 'string'
+          ? Number(parsed.event_id)
+          : Number.NaN
+
+    if (ticketCode && !Number.isNaN(qrEventId)) {
+      return {
+        source: 'qr' as const,
+        ticketCode,
+        qrEventId,
+      }
     }
+  } catch {
+    // Allow manual ticket code input
   }
 
-  const attendanceMatch = trimmed.match(/^ATT-(\d+)$/i)
-  if (attendanceMatch?.[1]) {
-    return { type: 'ticket_id' as const, value: String(Number(attendanceMatch[1])) }
+  return {
+    source: 'manual' as const,
+    ticketCode: trimmed,
+    qrEventId: null,
   }
-
-  return { type: 'ticket_code' as const, value: trimmed }
 }
 
 export default function CheckInPage() {
+  const [events, setEvents] = useState<EventOption[]>([])
+  const [selectedEventId, setSelectedEventId] = useState('')
   const [ticketInput, setTicketInput] = useState('')
+  const [loadingEvents, setLoadingEvents] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchEvents() {
+      setLoadingEvents(true)
+      setError(null)
+
+      const { data, error: queryError } = await supabase
+        .from('events')
+        .select('id,name')
+        .order('start_date', { ascending: true })
+
+      if (queryError) {
+        setError(queryError.message)
+        setEvents([])
+      } else {
+        setEvents((data as EventOption[]) ?? [])
+      }
+
+      setLoadingEvents(false)
+    }
+
+    void fetchEvents()
+  }, [])
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setSuccess(null)
 
+    const eventId = Number(selectedEventId)
+    if (!selectedEventId || Number.isNaN(eventId)) {
+      setError('Please select an event')
+      return
+    }
+
     const parsedInput = parseTicketInput(ticketInput)
-    if (parsedInput.type === 'invalid') {
+    if (!parsedInput) {
       setError('Ticket code or QR payload is required')
+      return
+    }
+
+    if (parsedInput.qrEventId !== null && parsedInput.qrEventId !== eventId) {
+      setError('This ticket does not belong to this event')
       return
     }
 
     setLoading(true)
 
-    const ticketLookupQuery = supabase.from('tickets').select('*')
+    const ticketLookupQuery = supabase.from('tickets').select('*').eq('ticket_code', parsedInput.ticketCode)
+
     const { data, error: fetchError } =
-      parsedInput.type === 'ticket_id'
-        ? await ticketLookupQuery.eq('id', Number(parsedInput.value)).single()
-        : await ticketLookupQuery.eq('ticket_code', parsedInput.value).single()
+      parsedInput.source === 'qr' && parsedInput.qrEventId !== null
+        ? await ticketLookupQuery.eq('event_id', parsedInput.qrEventId).single()
+        : await ticketLookupQuery.single()
 
     if (fetchError) {
       const notFound = fetchError.code === 'PGRST116'
@@ -66,6 +125,34 @@ export default function CheckInPage() {
     }
 
     const ticket = data as TicketRow
+
+    if (ticket.event_id !== eventId) {
+      setError('This ticket does not belong to this event')
+      setLoading(false)
+      return
+    }
+
+    const { data: eventAttendeeData, error: eventAttendeeError } = await supabase
+      .from('event_attendees')
+      .select('attendance_status')
+      .eq('event_id', ticket.event_id)
+      .eq('attendee_id', ticket.attendee_id)
+      .single()
+
+    if (eventAttendeeError) {
+      const notFound = eventAttendeeError.code === 'PGRST116'
+      setError(notFound ? 'Registration record not found for this ticket' : eventAttendeeError.message)
+      setLoading(false)
+      return
+    }
+
+    const eventAttendee = eventAttendeeData as EventAttendeeRow
+
+    if (eventAttendee.attendance_status === 'attended') {
+      setError('Already checked in')
+      setLoading(false)
+      return
+    }
 
     if (ticket.is_checked_in) {
       setError('Already checked in')
@@ -97,19 +184,43 @@ export default function CheckInPage() {
     }
 
     setSuccess('Check-in successful and attendance recorded')
+    setSelectedEventId('')
     setTicketInput('')
     setLoading(false)
   }
 
   return (
     <section className="mx-auto w-full max-w-3xl px-6 py-10">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Check-In</h1>
-      <p className="mt-2 text-sm text-slate-600">Scan QR payload, ticket code, or attendance number to record attendance.</p>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Admin Check-In</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        Select an event, then scan QR JSON or enter ticket code to record attendance.
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5 rounded-xl border border-slate-200 bg-white p-6">
         <div>
+          <label htmlFor="event_id" className="mb-1 block text-sm font-medium text-slate-700">
+            Event
+          </label>
+          <select
+            id="event_id"
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+            required
+            disabled={loadingEvents}
+          >
+            <option value="">Select event</option>
+            {events.map((event) => (
+              <option key={event.id} value={String(event.id)}>
+                {event.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="ticket_input" className="mb-1 block text-sm font-medium text-slate-700">
-            Ticket Code / Attendance Number / QR Payload
+            Ticket Code or QR Payload
           </label>
           <input
             id="ticket_input"
@@ -127,7 +238,7 @@ export default function CheckInPage() {
         <div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || loadingEvents}
             className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Checking...' : 'Check In'}

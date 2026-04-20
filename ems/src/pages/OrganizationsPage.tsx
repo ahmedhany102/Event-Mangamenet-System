@@ -43,7 +43,7 @@ export default function OrganizationsPage() {
           <p className="mt-2 text-sm text-slate-600">Manage organization records.</p>
         </div>
         <Link
-          to="/organizations/create"
+          to="/admin/organizations/create"
           className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
         >
           Create Organization

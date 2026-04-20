@@ -41,7 +41,7 @@ export default function CreateOrganizationPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Create Organization</h1>
         <Link
-          to="/organizations"
+          to="/admin/organizations"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
         >
           Back to Organizations

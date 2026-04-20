@@ -10,8 +10,18 @@ type FormState = {
   end_date: string
   budget: string
   status: string
-  organization_id: string
   venue_id: string
+}
+
+type EventRow = {
+  id: number
+  venue_id: number
+  name: string
+  description: string | null
+  start_date: string
+  end_date: string
+  budget: number
+  status: string
 }
 
 const initialForm: FormState = {
@@ -21,68 +31,21 @@ const initialForm: FormState = {
   end_date: '',
   budget: '0',
   status: 'planned',
-  organization_id: '',
   venue_id: '',
-}
-
-type EventRow = {
-  id: number
-  organization_id: number
-  venue_id: number
-  name: string
-  description: string | null
-  start_date: string
-  end_date: string
-  budget: number
-  expenditure: number
-  status: string
-}
-
-type OrganizationOption = {
-  id: number
-  name: string
 }
 
 export default function EditEventPage() {
   const { id } = useParams()
 
   const [form, setForm] = useState<FormState>(initialForm)
-  const [organizations, setOrganizations] = useState<OrganizationOption[]>([])
   const [initialLoading, setInitialLoading] = useState(true)
-  const [loadingOrganizations, setLoadingOrganizations] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  function validate() {
-    if (!form.name.trim()) return 'Name is required.'
-    if (!form.start_date || !form.end_date) return 'Start date and end date are required.'
-    if (new Date(form.start_date) >= new Date(form.end_date)) {
-      return 'Start date must be before end date.'
-    }
-
-    const budget = Number(form.budget)
-    if (Number.isNaN(budget) || budget < 0) return 'Budget must be greater than or equal to 0.'
-
-    if (!form.organization_id) {
-      return 'Please select an organization.'
-    }
-
-    if (!form.venue_id || Number(form.venue_id) <= 0) {
-      return 'Venue ID is required.'
-    }
-
-    return null
-  }
-
   useEffect(() => {
-    async function fetchEventAndOrganizations() {
+    async function fetchEvent() {
       setInitialLoading(true)
-      setLoadingOrganizations(true)
       setError(null)
 
       if (!id) {
@@ -98,23 +61,12 @@ export default function EditEventPage() {
         return
       }
 
-      const [{ data: eventData, error: eventError }, { data: organizationsData, error: organizationsError }] =
-        await Promise.all([
-          supabase.from('events').select('*').eq('id', eventId).single(),
-          supabase.from('organizations').select('id,name').order('id', { ascending: true }),
-        ])
-
-      if (organizationsError) {
-        setError(organizationsError.message)
-        setOrganizations([])
-      } else {
-        setOrganizations((organizationsData as OrganizationOption[]) ?? [])
-      }
+      const { data, error: eventError } = await supabase.from('events').select('*').eq('id', eventId).single()
 
       if (eventError) {
         setError(eventError.message)
       } else {
-        const event = eventData as EventRow
+        const event = data as EventRow
         setForm({
           name: event.name,
           description: event.description ?? '',
@@ -122,17 +74,36 @@ export default function EditEventPage() {
           end_date: event.end_date,
           budget: String(event.budget ?? 0),
           status: event.status,
-          organization_id: String(event.organization_id),
           venue_id: String(event.venue_id),
         })
       }
 
       setInitialLoading(false)
-      setLoadingOrganizations(false)
     }
 
-    void fetchEventAndOrganizations()
+    void fetchEvent()
   }, [id])
+
+  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function validate() {
+    if (!form.name.trim()) return 'Name is required.'
+    if (!form.start_date || !form.end_date) return 'Start date and end date are required.'
+    if (new Date(form.start_date) >= new Date(form.end_date)) {
+      return 'Start date must be before end date.'
+    }
+
+    const budget = Number(form.budget)
+    if (Number.isNaN(budget) || budget < 0) return 'Budget must be greater than or equal to 0.'
+
+    if (!form.venue_id || Number(form.venue_id) <= 0) {
+      return 'Venue ID is required.'
+    }
+
+    return null
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -165,7 +136,6 @@ export default function EditEventPage() {
       end_date: form.end_date,
       budget: Number(form.budget),
       status: form.status,
-      organization_id: Number(form.organization_id),
       venue_id: Number(form.venue_id),
     }
 
@@ -186,7 +156,7 @@ export default function EditEventPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Edit Event</h1>
         <Link
-          to={id ? `/events/${id}` : '/events'}
+          to="/admin/events"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
         >
           Back
@@ -194,25 +164,11 @@ export default function EditEventPage() {
       </div>
 
       {initialLoading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">
-          Loading event...
-        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Loading event...</div>
       ) : null}
 
       {!initialLoading ? (
         <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-slate-200 bg-white p-6">
-          {!loadingOrganizations && organizations.length === 0 ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <p>Please create an organization first</p>
-              <Link
-                to="/organizations/create"
-                className="mt-2 inline-flex rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                Create Organization
-              </Link>
-            </div>
-          ) : null}
-
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
               Name
@@ -303,29 +259,6 @@ export default function EditEventPage() {
                 <option value="cancelled">cancelled</option>
               </select>
             </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="organization_id" className="mb-1 block text-sm font-medium text-slate-700">
-                Organization
-              </label>
-              <select
-                id="organization_id"
-                value={form.organization_id}
-                onChange={(e) => updateField('organization_id', e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-                required
-                disabled={loadingOrganizations || organizations.length === 0}
-              >
-                <option value="">Select organization</option>
-                {organizations.map((organization) => (
-                  <option key={organization.id} value={String(organization.id)}>
-                    {organization.id} - {organization.name}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             <div>
               <label htmlFor="venue_id" className="mb-1 block text-sm font-medium text-slate-700">
@@ -349,7 +282,7 @@ export default function EditEventPage() {
           <div>
             <button
               type="submit"
-              disabled={loading || loadingOrganizations || organizations.length === 0}
+              disabled={loading}
               className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? 'Saving...' : 'Update Event'}

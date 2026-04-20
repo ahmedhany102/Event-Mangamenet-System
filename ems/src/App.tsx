@@ -1,8 +1,8 @@
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminEventDetailsPage from './pages/AdminEventDetailsPage'
 import AdminEventsPage from './pages/AdminEventsPage'
 import AttendeesPage from './pages/AttendeesPage'
-import CheckInPage from './pages/CheckInPage'
 import CreateAttendeePage from './pages/CreateAttendeePage'
 import CreateEmployeePage from './pages/CreateEmployeePage'
 import CreateEventPage from './pages/CreateEventPage'
@@ -11,7 +11,6 @@ import CreateTaskPage from './pages/CreateTaskPage'
 import DashboardPage from './pages/DashboardPage'
 import EditEventPage from './pages/EditEventPage'
 import EmployeesPage from './pages/EmployeesPage'
-import EventRegistrationPage from './pages/EventRegistrationPage'
 import EventDetailsPage from './pages/EventDetailsPage'
 import EventsPage from './pages/EventsPage'
 import LoginPage from './pages/LoginPage'
@@ -74,14 +73,6 @@ function App() {
                 >
                   Attendees
                 </NavLink>
-                <NavLink
-                  to="/admin/checkin"
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-2 ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
-                  }
-                >
-                  Check-In
-                </NavLink>
 
                 <button
                   type="button"
@@ -103,7 +94,13 @@ function App() {
 
         <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/events" element={<Navigate to="/" replace />} />
-        <Route path="/check-in" element={<Navigate to="/admin/checkin" replace />} />
+        <Route path="/check-in" element={<Navigate to="/admin/events" replace />} />
+        <Route path="/employees" element={<Navigate to="/admin/employees" replace />} />
+        <Route path="/employees/create" element={<Navigate to="/admin/employees/create" replace />} />
+        <Route path="/organizations" element={<Navigate to="/admin/organizations" replace />} />
+        <Route path="/organizations/create" element={<Navigate to="/admin/organizations/create" replace />} />
+        <Route path="/tasks" element={<Navigate to="/admin/tasks" replace />} />
+        <Route path="/tasks/create" element={<Navigate to="/admin/tasks/create" replace />} />
 
         <Route
           path="/admin/dashboard"
@@ -118,6 +115,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminEventsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/events/:id"
+          element={
+            <ProtectedRoute>
+              <AdminEventDetailsPage />
             </ProtectedRoute>
           }
         />
@@ -153,33 +158,10 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/admin/checkin"
-          element={
-            <ProtectedRoute>
-              <CheckInPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/admin/checkin" element={<Navigate to="/admin/events" replace />} />
 
         <Route
-          path="/employees"
-          element={
-            <ProtectedRoute>
-              <EmployeesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employees/create"
-          element={
-            <ProtectedRoute>
-              <CreateEmployeePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/organizations"
+          path="/admin/organizations"
           element={
             <ProtectedRoute>
               <OrganizationsPage />
@@ -187,15 +169,32 @@ function App() {
           }
         />
         <Route
-          path="/organizations/create"
+          path="/admin/organizations/create"
           element={
             <ProtectedRoute>
               <CreateOrganizationPage />
             </ProtectedRoute>
           }
         />
+
         <Route
-          path="/tasks"
+          path="/admin/employees"
+          element={
+            <ProtectedRoute>
+              <EmployeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/employees/create"
+          element={
+            <ProtectedRoute>
+              <CreateEmployeePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/tasks"
           element={
             <ProtectedRoute>
               <TasksPage />
@@ -203,7 +202,7 @@ function App() {
           }
         />
         <Route
-          path="/tasks/create"
+          path="/admin/tasks/create"
           element={
             <ProtectedRoute>
               <CreateTaskPage />

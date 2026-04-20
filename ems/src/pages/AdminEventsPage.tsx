@@ -123,10 +123,10 @@ export default function AdminEventsPage() {
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-2">
                       <Link
-                        to={`/events/${event.id}`}
+                        to={`/admin/events/${event.id}`}
                         className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
                       >
-                        View
+                        Details
                       </Link>
                       <Link
                         to={`/admin/events/${event.id}/edit`}
