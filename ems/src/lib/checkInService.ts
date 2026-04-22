@@ -6,7 +6,6 @@ type TicketRecord = {
   event_id: number
   attendee_id: number
   ticket_code: string
-  is_checked_in: boolean
 }
 
 type EventAttendeeRecord = {
@@ -29,12 +28,12 @@ export async function checkInByEvent({ selectedEventId, rawInput }: CheckInParam
   const parsedInput = parseCheckInInput(rawInput)
 
   if (parsedInput.qrEventId !== null && parsedInput.qrEventId !== selectedEventId) {
-    throw new Error('This ticket does not belong to this event')
+    throw new Error('Invalid ticket for this event')
   }
 
   const { data: ticketData, error: ticketError } = await supabase
     .from('tickets')
-    .select('id,event_id,attendee_id,ticket_code,is_checked_in')
+    .select('id,event_id,attendee_id,ticket_code')
     .eq('ticket_code', parsedInput.ticketCode)
     .single()
 
@@ -46,7 +45,7 @@ export async function checkInByEvent({ selectedEventId, rawInput }: CheckInParam
   const ticket = ticketData as TicketRecord
 
   if (ticket.event_id !== selectedEventId) {
-    throw new Error('This ticket does not belong to this event')
+    throw new Error('Invalid ticket for this event')
   }
 
   const { data: attendeeData, error: attendeeError } = await supabase
@@ -63,7 +62,7 @@ export async function checkInByEvent({ selectedEventId, rawInput }: CheckInParam
 
   const attendee = attendeeData as EventAttendeeRecord
 
-  if (attendee.attendance_status === 'attended' || ticket.is_checked_in) {
+  if (attendee.attendance_status === 'attended') {
     throw new Error('Already checked in')
   }
 
@@ -80,15 +79,6 @@ export async function checkInByEvent({ selectedEventId, rawInput }: CheckInParam
 
   if (attendanceUpdateError) {
     throw new Error(attendanceUpdateError.message)
-  }
-
-  const { error: ticketUpdateError } = await supabase
-    .from('tickets')
-    .update({ is_checked_in: true })
-    .eq('id', ticket.id)
-
-  if (ticketUpdateError) {
-    throw new Error(ticketUpdateError.message)
   }
 
   return {

@@ -1,21 +1,10 @@
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
-import AdminEventDetailsPage from './pages/AdminEventDetailsPage'
-import AdminEventsPage from './pages/AdminEventsPage'
-import AttendeesPage from './pages/AttendeesPage'
-import CreateAttendeePage from './pages/CreateAttendeePage'
-import CreateEmployeePage from './pages/CreateEmployeePage'
-import CreateEventPage from './pages/CreateEventPage'
-import CreateOrganizationPage from './pages/CreateOrganizationPage'
-import CreateTaskPage from './pages/CreateTaskPage'
-import DashboardPage from './pages/DashboardPage'
-import EditEventPage from './pages/EditEventPage'
-import EmployeesPage from './pages/EmployeesPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import EventDetailsPage from './pages/EventDetailsPage'
 import EventsPage from './pages/EventsPage'
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
-import OrganizationsPage from './pages/OrganizationsPage'
-import TasksPage from './pages/TasksPage'
 
 function App() {
   const navigate = useNavigate()
@@ -25,8 +14,6 @@ function App() {
     localStorage.removeItem('isAdmin')
     navigate('/login', { replace: true })
   }
-
-  const adminDashboardHref = isAdmin ? '/admin/dashboard' : '/login'
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -38,16 +25,16 @@ function App() {
 
           <nav className="flex items-center gap-3 text-sm font-medium">
             <NavLink
-              to={adminDashboardHref}
+              to={isAdmin ? '/admin' : '/login'}
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
               }
             >
-              Admin Dashboard
+              Admin
             </NavLink>
 
             <NavLink
-              to="/"
+              to="/events"
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
               }
@@ -57,23 +44,6 @@ function App() {
 
             {isAdmin ? (
               <>
-                <NavLink
-                  to="/admin/events"
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-2 ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
-                  }
-                >
-                  Manage Events
-                </NavLink>
-                <NavLink
-                  to="/admin/attendees"
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-2 ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
-                  }
-                >
-                  Attendees
-                </NavLink>
-
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -88,127 +58,27 @@ function App() {
       </header>
 
       <Routes>
-        <Route path="/" element={<EventsPage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/events" element={<EventsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/events/:id" element={<EventDetailsPage />} />
 
-        <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/events" element={<Navigate to="/" replace />} />
-        <Route path="/check-in" element={<Navigate to="/admin/events" replace />} />
-        <Route path="/employees" element={<Navigate to="/admin/employees" replace />} />
-        <Route path="/employees/create" element={<Navigate to="/admin/employees/create" replace />} />
-        <Route path="/organizations" element={<Navigate to="/admin/organizations" replace />} />
-        <Route path="/organizations/create" element={<Navigate to="/admin/organizations/create" replace />} />
-        <Route path="/tasks" element={<Navigate to="/admin/tasks" replace />} />
-        <Route path="/tasks/create" element={<Navigate to="/admin/tasks/create" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
+        <Route path="/check-in" element={<Navigate to="/admin" replace />} />
 
         <Route
-          path="/admin/dashboard"
+          path="/admin"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <AdminDashboardPage />
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/admin/events"
-          element={
-            <ProtectedRoute>
-              <AdminEventsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/events/:id"
-          element={
-            <ProtectedRoute>
-              <AdminEventDetailsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/events/create"
-          element={
-            <ProtectedRoute>
-              <CreateEventPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/events/:id/edit"
-          element={
-            <ProtectedRoute>
-              <EditEventPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/attendees"
-          element={
-            <ProtectedRoute>
-              <AttendeesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/attendees/create"
-          element={
-            <ProtectedRoute>
-              <CreateAttendeePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/admin/checkin" element={<Navigate to="/admin/events" replace />} />
-
-        <Route
-          path="/admin/organizations"
-          element={
-            <ProtectedRoute>
-              <OrganizationsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/organizations/create"
-          element={
-            <ProtectedRoute>
-              <CreateOrganizationPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/employees"
-          element={
-            <ProtectedRoute>
-              <EmployeesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/employees/create"
-          element={
-            <ProtectedRoute>
-              <CreateEmployeePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/tasks"
-          element={
-            <ProtectedRoute>
-              <TasksPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/tasks/create"
-          element={
-            <ProtectedRoute>
-              <CreateTaskPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/events" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/events/:id" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/events/create" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/checkin" element={<Navigate to="/admin" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

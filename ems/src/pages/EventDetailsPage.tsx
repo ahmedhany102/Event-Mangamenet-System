@@ -6,47 +6,46 @@ import { supabase } from '../lib/supabase'
 
 type EventRow = {
   id: number
-  organization_id: number
-  venue_id: number
   name: string
+  venue: string | null
   description: string | null
   start_date: string
   end_date: string
-  budget: number
-  expenditure: number
   status: string
+  vip_code: string | null
+  speaker_code: string | null
+  capacity: number | null
 }
 
 type RegistrationFormState = {
   full_name: string
   email: string
   phone: string
+  ticket_type: 'student' | 'vip' | 'speaker'
+  access_code: string
 }
 
 type RegistrationResult = {
   ticketCode: string
   attendanceNumber: string
   qrPayload: string
+  name: string
+  ticketType: 'student' | 'vip' | 'speaker'
+  eventName: string
 }
 
 const initialRegistrationForm: RegistrationFormState = {
   full_name: '',
   email: '',
   phone: '',
+  ticket_type: 'student',
+  access_code: '',
 }
 
 function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString()
-}
-
-function formatBudget(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)
 }
 
 export default function EventDetailsPage() {
@@ -61,6 +60,8 @@ export default function EventDetailsPage() {
   const [registrationError, setRegistrationError] = useState<string | null>(null)
   const [registrationSuccess, setRegistrationSuccess] = useState<string | null>(null)
   const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
+  const [registeredCount, setRegisteredCount] = useState(0)
+  const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle')
 
   useEffect(() => {
     async function fetchEvent() {
@@ -80,17 +81,21 @@ export default function EventDetailsPage() {
         return
       }
 
-      const { data, error: queryError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single()
+      const [{ data, error: queryError }, { count: attendeeCount, error: attendeeCountError }] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id,name,description,start_date,end_date,venue,status,vip_code,speaker_code,capacity')
+          .eq('id', eventId)
+          .single(),
+        supabase.from('event_attendees').select('*', { count: 'exact', head: true }).eq('event_id', eventId),
+      ])
 
-      if (queryError) {
-        setEventError(queryError.message)
+      if (queryError || attendeeCountError) {
+        setEventError((queryError ?? attendeeCountError)?.message ?? 'Failed to load event')
         setEvent(null)
       } else {
         setEvent(data as EventRow)
+        setRegisteredCount(attendeeCount ?? 0)
       }
 
       setLoading(false)
@@ -99,10 +104,7 @@ export default function EventDetailsPage() {
     void fetchEvent()
   }, [id])
 
-  function updateRegistrationField<K extends keyof RegistrationFormState>(
-    key: K,
-    value: RegistrationFormState[K],
-  ) {
+  function updateRegistrationField<K extends keyof RegistrationFormState>(key: K, value: RegistrationFormState[K]) {
     setRegistrationForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -121,6 +123,10 @@ export default function EventDetailsPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registrationForm.email.trim())) {
       return 'Please enter a valid email address.'
     }
+    if (registrationForm.ticket_type !== 'student' && !registrationForm.access_code.trim()) {
+      return 'Access code is required for this ticket type.'
+    }
+
     return null
   }
 
@@ -136,7 +142,10 @@ export default function EventDetailsPage() {
       return
     }
 
-    const eventId = event.id
+    if (event.capacity !== null && registeredCount >= event.capacity) {
+      setRegistrationError('Event Full')
+      return
+    }
 
     const validationError = validateRegistrationForm()
     if (validationError) {
@@ -144,8 +153,23 @@ export default function EventDetailsPage() {
       return
     }
 
+    if (registrationForm.ticket_type === 'vip') {
+      if (!event.vip_code || registrationForm.access_code.trim() !== event.vip_code) {
+        setRegistrationError('Invalid VIP access code.')
+        return
+      }
+    }
+
+    if (registrationForm.ticket_type === 'speaker') {
+      if (!event.speaker_code || registrationForm.access_code.trim() !== event.speaker_code) {
+        setRegistrationError('Invalid Speaker access code.')
+        return
+      }
+    }
+
     setRegistrationLoading(true)
 
+    const eventId = event.id
     const normalizedEmail = registrationForm.email.trim().toLowerCase()
 
     const { data: existingAttendee, error: existingAttendeeError } = await supabase
@@ -204,6 +228,7 @@ export default function EventDetailsPage() {
     const { error: registrationInsertError } = await supabase.from('event_attendees').insert({
       event_id: eventId,
       attendee_id: attendeeId,
+      ticket_type: registrationForm.ticket_type,
       attendance_status: 'registered',
     })
 
@@ -263,6 +288,20 @@ export default function EventDetailsPage() {
       return
     }
 
+    const { error: eventAttendeeTicketUpdateError } = await supabase
+      .from('event_attendees')
+      .update({ ticket_code: createdTicket.ticket_code })
+      .eq('event_id', eventId)
+      .eq('attendee_id', attendeeId)
+
+    if (eventAttendeeTicketUpdateError) {
+      await supabase.from('tickets').delete().eq('id', createdTicket.id)
+      await rollbackRegistration()
+      setRegistrationError(eventAttendeeTicketUpdateError.message)
+      setRegistrationLoading(false)
+      return
+    }
+
     const attendanceNumber = `ATT-${String(createdTicket.id).padStart(6, '0')}`
     const qrPayload = JSON.stringify({
       ticket_code: createdTicket.ticket_code,
@@ -274,27 +313,49 @@ export default function EventDetailsPage() {
       ticketCode: createdTicket.ticket_code,
       attendanceNumber,
       qrPayload,
+      name: registrationForm.full_name.trim(),
+      ticketType: registrationForm.ticket_type,
+      eventName: event.name,
     })
+    setRegisteredCount((prev) => prev + 1)
     setRegistrationForm(initialRegistrationForm)
     setRegistrationLoading(false)
   }
 
+  async function copyEventLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopyState('done')
+    } catch {
+      setCopyState('error')
+    }
+
+    window.setTimeout(() => setCopyState('idle'), 2000)
+  }
+
   return (
-    <section className="mx-auto w-full max-w-4xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
+    <section className="mx-auto w-full max-w-5xl px-6 py-10">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Event Details</h1>
-        <Link
-          to="/"
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
-        >
-          Back to Events
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={copyEventLink}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
+          >
+            {copyState === 'done' ? 'Link Copied' : copyState === 'error' ? 'Copy Failed' : 'Copy Event Link'}
+          </button>
+          <Link
+            to="/events"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
+          >
+            Back to Events
+          </Link>
+        </div>
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">
-          Loading event details...
-        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Loading event details...</div>
       ) : null}
 
       {!loading && eventError ? (
@@ -302,13 +363,11 @@ export default function EventDetailsPage() {
       ) : null}
 
       {!loading && !eventError && !event ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">
-          Event not found.
-        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Event not found.</div>
       ) : null}
 
       {!loading && !eventError && event ? (
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -330,14 +389,23 @@ export default function EventDetailsPage() {
                 <dd className="mt-1 font-medium text-slate-900">{formatDate(event.end_date)}</dd>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Budget</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{formatBudget(event.budget)}</dd>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Venue</dt>
+                <dd className="mt-1 font-medium text-slate-900">{event.venue || '-'}</dd>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Venue</dt>
-                <dd className="mt-1 font-medium text-slate-900">#{event.venue_id}</dd>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Capacity</dt>
+                <dd className="mt-1 font-medium text-slate-900">
+                  {event.capacity ?? 'Unlimited'}
+                  {event.capacity !== null ? ` (${registeredCount}/${event.capacity} registered)` : ''}
+                </dd>
               </div>
             </dl>
+
+            {event.capacity !== null && registeredCount >= event.capacity ? (
+              <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                Event Full
+              </p>
+            ) : null}
           </article>
 
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -390,16 +458,62 @@ export default function EventDetailsPage() {
                 </div>
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="ticket_type" className="mb-1 block text-sm font-medium text-slate-700">
+                    Ticket Type
+                  </label>
+                  <select
+                    id="ticket_type"
+                    value={registrationForm.ticket_type}
+                    onChange={(e) =>
+                      updateRegistrationField('ticket_type', e.target.value as RegistrationFormState['ticket_type'])
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                  >
+                    <option value="student">Student</option>
+                    <option value="vip">VIP</option>
+                    <option value="speaker">Speaker</option>
+                  </select>
+                </div>
+
+                {registrationForm.ticket_type !== 'student' ? (
+                  <div>
+                    <label htmlFor="access_code" className="mb-1 block text-sm font-medium text-slate-700">
+                      Enter Access Code
+                    </label>
+                    <input
+                      id="access_code"
+                      type="text"
+                      value={registrationForm.access_code}
+                      onChange={(e) => updateRegistrationField('access_code', e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+                ) : null}
+              </div>
+
               {registrationError ? <p className="text-sm font-medium text-rose-700">{registrationError}</p> : null}
-              {registrationSuccess ? (
-                <p className="text-sm font-medium text-emerald-700">{registrationSuccess}</p>
-              ) : null}
+              {registrationSuccess ? <p className="text-sm font-medium text-emerald-700">{registrationSuccess}</p> : null}
 
               {registrationResult ? (
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">Ticket Code: {registrationResult.ticketCode}</p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    Attendance Number: {registrationResult.attendanceNumber}
+                  <p className="text-base font-semibold text-slate-900">Ticket Preview</p>
+                  <p className="text-sm text-slate-700">
+                    Name: <span className="font-semibold text-slate-900">{registrationResult.name}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Ticket Type: <span className="font-semibold uppercase text-slate-900">{registrationResult.ticketType}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Event Name: <span className="font-semibold text-slate-900">{registrationResult.eventName}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Ticket Code: <span className="font-semibold text-slate-900">{registrationResult.ticketCode}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Attendance Number: <span className="font-semibold text-slate-900">{registrationResult.attendanceNumber}</span>
                   </p>
                   <div className="flex justify-center">
                     <div className="rounded-lg border border-slate-200 bg-white p-3">
@@ -411,10 +525,14 @@ export default function EventDetailsPage() {
 
               <button
                 type="submit"
-                disabled={registrationLoading}
+                disabled={registrationLoading || (event.capacity !== null && registeredCount >= event.capacity)}
                 className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {registrationLoading ? 'Registering...' : 'Register'}
+                {event.capacity !== null && registeredCount >= event.capacity
+                  ? 'Event Full'
+                  : registrationLoading
+                    ? 'Registering...'
+                    : 'Register'}
               </button>
             </form>
           </article>

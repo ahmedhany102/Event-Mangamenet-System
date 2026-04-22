@@ -8,19 +8,17 @@ type FormState = {
   description: string
   start_date: string
   end_date: string
-  budget: string
+  venue: string
   status: string
-  venue_id: string
 }
 
 type EventRow = {
   id: number
-  venue_id: number
+  venue: string
   name: string
   description: string | null
   start_date: string
   end_date: string
-  budget: number
   status: string
 }
 
@@ -29,9 +27,8 @@ const initialForm: FormState = {
   description: '',
   start_date: '',
   end_date: '',
-  budget: '0',
+  venue: '',
   status: 'planned',
-  venue_id: '',
 }
 
 export default function EditEventPage() {
@@ -72,9 +69,8 @@ export default function EditEventPage() {
           description: event.description ?? '',
           start_date: event.start_date,
           end_date: event.end_date,
-          budget: String(event.budget ?? 0),
+          venue: event.venue ?? '',
           status: event.status,
-          venue_id: String(event.venue_id),
         })
       }
 
@@ -93,13 +89,6 @@ export default function EditEventPage() {
     if (!form.start_date || !form.end_date) return 'Start date and end date are required.'
     if (new Date(form.start_date) >= new Date(form.end_date)) {
       return 'Start date must be before end date.'
-    }
-
-    const budget = Number(form.budget)
-    if (Number.isNaN(budget) || budget < 0) return 'Budget must be greater than or equal to 0.'
-
-    if (!form.venue_id || Number(form.venue_id) <= 0) {
-      return 'Venue ID is required.'
     }
 
     return null
@@ -134,9 +123,8 @@ export default function EditEventPage() {
       description: form.description.trim() || null,
       start_date: form.start_date,
       end_date: form.end_date,
-      budget: Number(form.budget),
+      venue: form.venue.trim() || null,
       status: form.status,
-      venue_id: Number(form.venue_id),
     }
 
     const { error: updateError } = await supabase.from('events').update(payload).eq('id', eventId)
@@ -228,18 +216,15 @@ export default function EditEventPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="budget" className="mb-1 block text-sm font-medium text-slate-700">
-                Budget
+              <label htmlFor="venue" className="mb-1 block text-sm font-medium text-slate-700">
+                Venue
               </label>
               <input
-                id="budget"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.budget}
-                onChange={(e) => updateField('budget', e.target.value)}
+                id="venue"
+                type="text"
+                value={form.venue}
+                onChange={(e) => updateField('venue', e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-                required
               />
             </div>
 
@@ -260,20 +245,6 @@ export default function EditEventPage() {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="venue_id" className="mb-1 block text-sm font-medium text-slate-700">
-                Venue ID
-              </label>
-              <input
-                id="venue_id"
-                type="number"
-                min="1"
-                value={form.venue_id}
-                onChange={(e) => updateField('venue_id', e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-                required
-              />
-            </div>
           </div>
 
           {error ? <p className="text-sm font-medium text-rose-700">{error}</p> : null}

@@ -1,73 +1,178 @@
-# React + TypeScript + Vite
+# Event Management System (EMS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Production-oriented event control platform built with React, TypeScript, Tailwind CSS, and Supabase.
 
-Currently, two official plugins are available:
+## System Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The platform has two user modes:
 
-## React Compiler
+1. Public user (no login): browse events and register.
+2. Admin (protected): run operations from a single dashboard at `/admin`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Events are the core entity. Registration, ticketing, check-in, and analytics are all event-scoped.
 
-## Expanding the ESLint configuration
+## Route Model
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Public routes
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- `/`
+- `/events/:id`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Admin routes
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- `/admin`
+
+Legacy admin event paths now redirect to `/admin`.
+
+## Public Registration Flow
+
+1. User opens `/` and selects an event.
+2. User opens `/events/:id` and submits registration form.
+3. System executes:
+   - create/find attendee by email
+   - register attendee in `event_attendees`
+   - generate unique `ticket_code`
+   - create `tickets` row
+   - write `ticket_code` back to `event_attendees`
+   - generate QR payload: `{ "ticket_code": "...", "event_id": ... }`
+4. User receives QR code, ticket code, and attendance number.
+
+## Secure Ticket Type Logic
+
+Supported ticket types:
+
+- `student` (default)
+- `vip`
+- `speaker`
+
+Security rules:
+
+1. Public user may select any ticket type, but:
+2. `vip` requires matching `events.vip_code`.
+3. `speaker` requires matching `events.speaker_code`.
+4. Invalid code rejects registration.
+
+## Admin Control Center (`/admin`)
+
+The dashboard is the single operational page and includes:
+
+1. In-page event creation (no separate manage-events page).
+2. Auto-generation of `vip_code` and `speaker_code` on event creation.
+3. Event list with registered/attended counts.
+4. Open-event control panel containing:
+   - event information and secure access codes
+   - separate Registered and Attended tables
+   - manual ticket input and camera QR scan
+   - live state updates after check-in
+   - analytics cards
+   - CSV export
+
+## Check-In Rules
+
+For manual and QR-based check-in:
+
+1. Ticket must exist.
+2. Ticket must belong to the current event.
+3. Duplicate attendance is blocked.
+4. On success:
+   - `event_attendees.attendance_status = 'attended'`
+   - `event_attendees.checked_in_at = now()`
+
+## Event Analytics
+
+Displayed per event in admin control panel:
+
+1. Registered count
+2. Attended count
+3. Attendance rate
+4. No-show rate
+5. Peak check-in time bucket
+
+## CSV Export
+
+Admin export fields:
+
+1. Full Name
+2. Email
+3. Phone
+4. Ticket Type
+5. Attendance Status
+6. Check-in Time
+
+## Database Schema (Key Tables)
+
+### events
+
+- `id`
+- `name`
+- `description`
+- `start_date`
+- `end_date`
+- `venue` (optional text)
+- `status`
+- `vip_code`
+- `speaker_code`
+
+### attendees
+
+- `id`
+- `full_name`
+- `email`
+- `phone`
+
+### event_attendees
+
+- `id`
+- `event_id`
+- `attendee_id`
+- `ticket_code` (unique)
+- `ticket_type` (`student` | `vip` | `speaker`)
+- `attendance_status` (`registered` | `attended`)
+- `checked_in_at`
+
+### tickets
+
+- `id`
+- `ticket_code`
+- `event_id`
+- `attendee_id`
+
+## Migration
+
+Primary migration for current architecture:
+
+- `supabase/migrations/009_admin_event_checkin_alignment.sql`
+
+It aligns:
+
+1. `events.venue` and removes `venue_id`
+2. optional `organization_id`
+3. secure event codes (`vip_code`, `speaker_code`)
+4. attendee ticket columns and constraints (`ticket_code`, `ticket_type`, `checked_in_at`)
+
+## Development
+
+1. Install dependencies:
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Configure environment variables:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+3. Run app:
+
+```bash
+npm run dev
+```
+
+4. Production build:
+
+```bash
+npm run build
 ```
