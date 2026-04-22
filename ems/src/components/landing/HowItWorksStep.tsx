@@ -14,13 +14,14 @@ export default function HowItWorksStep({ step, title, description, delay = 0 }: 
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.35 }}
       transition={{ duration: 0.45, delay }}
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      whileHover={{ y: -4 }}
+      className="rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-xl"
     >
-      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-800">
+      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-cyan-200/20 bg-cyan-400/10 text-sm font-semibold text-cyan-200">
         {step}
       </div>
-      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm text-slate-600">{description}</p>
+      <h3 className="text-base font-semibold text-white">{title}</h3>
+      <p className="mt-2 text-sm text-slate-300">{description}</p>
     </motion.article>
   )
 }
