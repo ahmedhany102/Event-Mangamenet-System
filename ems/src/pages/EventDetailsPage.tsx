@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import FeedbackQRModal from '../components/FeedbackQRModal'
 import { supabase } from '../lib/supabase'
 
 type EventRow = {
@@ -62,6 +63,7 @@ export default function EventDetailsPage() {
   const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
   const [registeredCount, setRegisteredCount] = useState(0)
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle')
+  const [showFeedbackQR, setShowFeedbackQR] = useState(false)
 
   useEffect(() => {
     async function fetchEvent() {
@@ -340,6 +342,13 @@ export default function EventDetailsPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setShowFeedbackQR(true)}
+            className="rounded-lg border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-800"
+          >
+            Show Feedback QR Code
+          </button>
+          <button
+            type="button"
             onClick={copyEventLink}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800"
           >
@@ -537,6 +546,13 @@ export default function EventDetailsPage() {
             </form>
           </article>
         </div>
+      ) : null}
+      {showFeedbackQR && event ? (
+        <FeedbackQRModal
+          eventId={event.id}
+          eventName={event.name}
+          onClose={() => setShowFeedbackQR(false)}
+        />
       ) : null}
     </section>
   )

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import AdminEventControlPanel from '../components/admin/AdminEventControlPanel'
+import FeedbackQRModal from '../components/FeedbackQRModal'
 import { supabase } from '../lib/supabase'
 
 type EventRow = {
@@ -21,6 +22,11 @@ type EventAttendeeRow = {
   attendance_status: 'registered' | 'attended' | string
 }
 
+type FeedbackRow = {
+  event_id: number
+  rating: number
+}
+
 type DashboardEventRow = {
   id: number
   name: string
@@ -31,6 +37,8 @@ type DashboardEventRow = {
   capacity: number
   registeredCount: number
   attendedCount: number
+  avgRating: number | null
+  feedbackCount: number
 }
 
 type CreateEventForm = {
@@ -73,6 +81,7 @@ function formatDate(value: string) {
 export default function AdminDashboardPage() {
   const [events, setEvents] = useState<EventRow[]>([])
   const [eventAttendees, setEventAttendees] = useState<EventAttendeeRow[]>([])
+  const [feedback, setFeedback] = useState<FeedbackRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null)
@@ -85,29 +94,33 @@ export default function AdminDashboardPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null)
+  const [qrModalEventId, setQrModalEventId] = useState<number | null>(null)
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
     setError(null)
 
-    const [{ data: eventsData, error: eventsError }, { data: attendeesData, error: attendeesError }] =
+    const [{ data: eventsData, error: eventsError }, { data: attendeesData, error: attendeesError }, { data: feedbackData, error: feedbackError }] =
       await Promise.all([
         supabase
           .from('events')
           .select('id,name,description,venue,start_date,end_date,status,vip_code,speaker_code,capacity')
           .order('start_date', { ascending: true }),
         supabase.from('event_attendees').select('event_id,attendance_status'),
+        supabase.from('feedback').select('event_id,rating'),
       ])
 
-    const firstError = eventsError || attendeesError
+    const firstError = eventsError || attendeesError || feedbackError
 
     if (firstError) {
       setError(firstError.message)
       setEvents([])
       setEventAttendees([])
+      setFeedback([])
     } else {
       setEvents((eventsData as EventRow[]) ?? [])
       setEventAttendees((attendeesData as EventAttendeeRow[]) ?? [])
+      setFeedback((feedbackData as FeedbackRow[]) ?? [])
     }
 
     setLoading(false)
@@ -191,14 +204,21 @@ export default function AdminDashboardPage() {
       const rows = eventAttendees.filter((row) => row.event_id === event.id)
       const registeredCount = rows.length
       const attendedCount = rows.filter((row) => row.attendance_status === 'attended').length
+      const eventFeedback = feedback.filter((f) => f.event_id === event.id)
+      const feedbackCount = eventFeedback.length
+      const avgRating = feedbackCount > 0
+        ? eventFeedback.reduce((sum, f) => sum + f.rating, 0) / feedbackCount
+        : null
 
       return {
         ...event,
         registeredCount,
         attendedCount,
+        avgRating,
+        feedbackCount,
       }
     })
-  }, [eventAttendees, events])
+  }, [eventAttendees, events, feedback])
 
   function startEditEvent(event: EventRow) {
     setEditError(null)
@@ -548,6 +568,7 @@ export default function AdminDashboardPage() {
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Capacity</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Registered</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Attended</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Feedback</th>
                 <th className="px-4 py-3 text-right font-semibold text-slate-700">Quick Actions</th>
               </tr>
             </thead>
@@ -563,8 +584,24 @@ export default function AdminDashboardPage() {
                   <td className="px-4 py-3 text-slate-700">{row.capacity}</td>
                   <td className="px-4 py-3 text-slate-700">{row.registeredCount}</td>
                   <td className="px-4 py-3 text-slate-700">{row.attendedCount}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {row.feedbackCount > 0 ? (
+                      <span>
+                        ⭐ {row.avgRating?.toFixed(1)} <span className="text-xs text-slate-500">({row.feedbackCount})</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQrModalEventId(row.id)}
+                        className="rounded-md border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-800"
+                      >
+                        Show Feedback QR
+                      </button>
                       <button
                         type="button"
                         onClick={() => setSelectedEventId(row.id)}
@@ -597,6 +634,13 @@ export default function AdminDashboardPage() {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {qrModalEventId ? (
+        <FeedbackQRModal
+          eventId={qrModalEventId}
+          eventName={events.find((e) => e.id === qrModalEventId)?.name ?? ''}
+          onClose={() => setQrModalEventId(null)}
+        />
       ) : null}
     </section>
   )

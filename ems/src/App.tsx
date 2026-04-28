@@ -3,6 +3,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import EventDetailsPage from './pages/EventDetailsPage'
 import EventsPage from './pages/EventsPage'
+import FeedbackPage from './pages/FeedbackPage'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 
@@ -43,15 +44,13 @@ function App() {
             </NavLink>
 
             {isAdmin ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-100"
-                >
-                  Logout
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-100"
+              >
+                Logout
+              </button>
             ) : null}
           </nav>
         </div>
@@ -62,6 +61,7 @@ function App() {
         <Route path="/events" element={<EventsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/events/:id" element={<EventDetailsPage />} />
+        <Route path="/feedback/:eventId" element={<FeedbackPage />} />
 
         <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
         <Route path="/check-in" element={<Navigate to="/admin" replace />} />
