@@ -1,145 +1,249 @@
 # Event Management System (EMS)
 
-This project implements a production-level event control architecture with clear separation between:
+A production-level event management platform built with **React**, **TypeScript**, **Vite**, and **Supabase**. The system separates public-facing features (event discovery, registration, feedback) from admin-only operations (event control, check-in, analytics) behind a protected dashboard.
 
-1. Public users (no login)
-2. Admin users (protected dashboard)
+---
 
-## Architecture Summary
+## Tech Stack
 
-- Public routes are focused on event discovery and secure registration.
-- Admin runs all controls from a single dashboard route.
-- Event operations are event-centric: registration, ticketing, check-in, analytics, and export.
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, TypeScript, Vite |
+| Styling | Tailwind CSS |
+| Backend | Supabase (PostgreSQL + REST API) |
+| QR Codes | `qrcode.react`, `html5-qrcode` |
+| Routing | React Router DOM |
 
-## Public Flow
+---
 
-1. Open `/` to view events.
-2. Open `/events/:id` to view event details.
-3. Submit registration form (full name, email, phone).
-4. System executes:
-   - find/create attendee
-   - register attendee in `event_attendees`
-   - validate ticket type access code when needed
-   - generate unique `ticket_code`
-   - create `tickets` record
-   - generate QR payload `{ ticket_code, event_id }`
-5. User receives QR code, ticket code, and attendance number.
+## Features
 
-## Admin Flow
+### Public Features
 
-1. Open `/admin` (protected) to see event-focused dashboard.
-2. Create events directly inside dashboard.
-3. System auto-generates secure event codes (`vip_code`, `speaker_code`).
-4. Open any event for complete operations:
-   - event info and stats
-   - registered attendees table
-   - attended attendees table
-   - manual ticket check-in input
-   - camera QR scanner
-   - CSV export
+- **Landing Page** — Browse upcoming events.
+- **Event Details** — View event name, venue, description, dates, and capacity.
+- **Secure Registration** — Attendees register with full name, email, and phone. The system automatically:
+  - Creates or finds an `attendee` record.
+  - Registers the attendee in `event_attendees`.
+  - Validates VIP/Speaker access codes when required.
+  - Generates a unique `ticket_code` and creates a `tickets` record.
+  - Returns a QR code payload (`{ ticket_code, event_id }`), ticket code, and attendance number.
+- **Event Feedback** — Attendees scan a feedback QR code, enter their email, and submit a star rating (1–5) with an optional comment. Only checked-in attendees may submit feedback. Duplicate submissions are blocked.
+
+### Admin Features
+
+- **Admin Dashboard** — Protected route (`/admin`) with a full event overview table showing:
+  - Registered / Attended counts
+  - Average feedback rating per event
+  - Quick actions (Open Event, Edit, Delete, Show Feedback QR, View Feedback)
+- **Event Control Panel** — Deep view into a single event:
+  - Event info and access code management (VIP / Speaker)
+  - Real-time stats cards (Registered, Attended, Attendance Rate, No-show Rate, Peak Check-in)
+  - Registered attendees table
+  - Attended attendees table (with check-in timestamp)
+  - Manual ticket check-in input
+  - Camera-based QR scanner for instant check-in
+  - CSV export of all attendees
+- **Feedback Results Page** (`/admin/events/:eventId/feedback`) — View all feedback for an event with average rating, total count, and a full submission table.
+
+---
+
+## Architecture
+
+- **Public routes** are unauthenticated and focus on discovery, registration, and feedback.
+- **Admin routes** are protected and centralize all control in a single dashboard.
+- **Event-centric design** means every operation (registration, ticketing, check-in, analytics, feedback) is scoped to a specific event.
+
+---
+
+## Database Schema
+
+### `events`
+Stores event details and access codes.
+
+| Column | Type |
+|--------|------|
+| id | `bigint` (PK) |
+| name | `text` |
+| description | `text` |
+| start_date | `date` |
+| end_date | `date` |
+| venue | `text` |
+| status | `text` |
+| vip_code | `text` |
+| speaker_code | `text` |
+| capacity | `integer` |
+
+### `attendees`
+Stores people who register for events.
+
+| Column | Type |
+|--------|------|
+| id | `bigint` (PK) |
+| full_name | `text` |
+| email | `text` (unique) |
+| phone | `text` |
+
+### `event_attendees`
+Links attendees to events with ticket and attendance metadata.
+
+| Column | Type |
+|--------|------|
+| id | `bigint` (PK) |
+| event_id | `bigint` (FK) |
+| attendee_id | `bigint` (FK) |
+| ticket_code | `text` |
+| ticket_type | `text` |
+| attendance_status | `text` (`registered` \| `attended`) |
+| checked_in_at | `timestamptz` |
+
+### `tickets`
+Stores uniquely generated tickets.
+
+| Column | Type |
+|--------|------|
+| id | `bigint` (PK) |
+| event_id | `bigint` (FK) |
+| attendee_id | `bigint` (FK) |
+| ticket_code | `text` (unique) |
+| is_checked_in | `boolean` |
+| issued_at | `timestamptz` |
+
+### `feedback`
+Stores attendee feedback.
+
+| Column | Type |
+|--------|------|
+| id | `bigint` (PK) |
+| event_id | `bigint` (FK) |
+| attendee_id | `bigint` (FK) |
+| rating | `integer` (1–5) |
+| comment | `text` |
+| created_at | `timestamptz` |
+
+---
 
 ## Ticket Type Security
 
-Supported ticket types:
+| Type | Access Code Required |
+|------|----------------------|
+| Student | No |
+| VIP | Yes (`vip_code`) |
+| Speaker | Yes (`speaker_code`) |
 
-- student
-- vip
-- speaker
+Invalid access codes reject registration immediately.
 
-Rules:
-
-- student requires no code
-- vip requires event `vip_code`
-- speaker requires event `speaker_code`
-- invalid code rejects registration
+---
 
 ## Check-In Rules
 
 1. Ticket must exist.
-2. Ticket must belong to current event.
+2. Ticket must belong to the current event.
 3. Already-attended records are rejected.
-4. Valid check-in updates:
+4. Valid check-in atomically updates:
+   - `tickets.is_checked_in = true`
    - `event_attendees.attendance_status = 'attended'`
    - `event_attendees.checked_in_at = now()`
 
-The UI updates instantly after successful check-in:
+The UI updates instantly after successful check-in: the attendee moves from the *Registered* table to the *Attended* table, and all counters refresh without a page reload.
 
-- attendee removed from Registered table
-- attendee added to Attended table
-- counters updated without reload
-
-## Database Model
-
-### events
-
-- `id`
-- `name`
-- `description`
-- `start_date`
-- `end_date`
-- `venue`
-- `status`
-- `vip_code`
-- `speaker_code`
-
-### attendees
-
-- `id`
-- `full_name`
-- `email`
-- `phone`
-
-### event_attendees
-
-- `id`
-- `event_id`
-- `attendee_id`
-- `ticket_code` (unique)
-- `ticket_type` (`student` | `vip` | `speaker`)
-- `attendance_status` (`registered` | `attended`)
-- `checked_in_at`
-
-### tickets
-
-- `id`
-- `ticket_code`
-- `event_id`
-- `attendee_id`
+---
 
 ## Key Routes
 
 ### Public
 
-- `/`
-- `/events/:id`
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/events` | All events |
+| `/events/:id` | Event details & registration |
+| `/feedback/:eventId` | Submit feedback |
 
 ### Admin
 
-- `/admin`
+| Route | Description |
+|-------|-------------|
+| `/admin` | Dashboard (protected) |
+| `/admin/events/:eventId/feedback` | Feedback results (protected) |
+
+---
 
 ## Setup
 
-1. Install dependencies in `ems`:
+### 1. Install Dependencies
 
 ```bash
+cd ems
 npm install
 ```
 
-2. Configure Supabase environment variables:
+### 2. Configure Environment Variables
 
-```bash
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_PUBLISHABLE_KEY=...
+Create a `.env` file in the `ems` directory:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 
-3. Run development server:
+### 3. Run Database Migrations
+
+Apply all Supabase migration files in `supabase/migrations/` in numeric order.
+
+### 4. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-4. Build for production:
+### 5. Build for Production
 
 ```bash
 npm run build
 ```
+
+---
+
+## Project Structure
+
+```
+ems/
+├─ src/
+│  ├─ components/
+│  │  ├─ admin/
+│  │  │  └─ AdminEventControlPanel.tsx
+│  │  ├─ dashboard/
+│  │  ├─ landing/
+│  │  ├─ EventCard.tsx
+│  │  ├─ FeedbackQRModal.tsx
+│  │  └─ ProtectedRoute.tsx
+│  ├─ lib/
+│  │  ├─ supabase.ts
+│  │  └─ checkInService.ts
+│  ├─ pages/
+│  │  ├─ LandingPage.tsx
+│  │  ├─ EventsPage.tsx
+│  │  ├─ EventDetailsPage.tsx
+│  │  ├─ FeedbackPage.tsx
+│  │  ├─ FeedbackResultsPage.tsx
+│  │  ├─ AdminDashboardPage.tsx
+│  │  ├─ CheckInPage.tsx
+│  │  └─ LoginPage.tsx
+│  ├─ App.tsx
+│  └─ main.tsx
+├─ supabase/
+│  └─ migrations/
+│     ├─ 001_create_employees.sql
+│     ├─ ...
+│     └─ 010_create_feedback.sql
+├─ index.html
+├─ vite.config.ts
+└─ package.json
+```
+
+---
+
+## License
+
+MIT
