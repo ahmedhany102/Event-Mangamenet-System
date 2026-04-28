@@ -666,6 +666,8 @@ export default function AdminEventControlPanel({ eventId, onBack, onDataChanged 
                 <thead className="bg-emerald-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-emerald-800">Name</th>
+                    <th className="px-4 py-3 text-left font-semibold text-emerald-800">Email</th>
+                    <th className="px-4 py-3 text-left font-semibold text-emerald-800">Phone</th>
                     <th className="px-4 py-3 text-left font-semibold text-emerald-800">Ticket Type</th>
                     <th className="px-4 py-3 text-left font-semibold text-emerald-800">Ticket Code</th>
                     <th className="px-4 py-3 text-left font-semibold text-emerald-800">Check-in Time</th>
@@ -675,7 +677,7 @@ export default function AdminEventControlPanel({ eventId, onBack, onDataChanged 
                 <tbody className="divide-y divide-emerald-100">
                   {attendedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-4 text-slate-600">
+                      <td colSpan={7} className="px-4 py-4 text-slate-600">
                         No attended attendees yet.
                       </td>
                     </tr>
@@ -683,6 +685,8 @@ export default function AdminEventControlPanel({ eventId, onBack, onDataChanged 
                     attendedRows.map((row) => (
                       <tr key={`attended-${row.attendeeId}`} className="hover:bg-emerald-50">
                         <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
+                        <td className="px-4 py-3 text-slate-700">{row.email}</td>
+                        <td className="px-4 py-3 text-slate-700">{row.phone || '-'}</td>
                         <td className="px-4 py-3 text-slate-700 uppercase">{row.ticketType}</td>
                         <td className="px-4 py-3 font-mono text-slate-700">{row.ticketCode ?? '-'}</td>
                         <td className="px-4 py-3 text-slate-700">{formatDateTime(row.checkInTime)}</td>

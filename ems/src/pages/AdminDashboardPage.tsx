@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import AdminEventControlPanel from '../components/admin/AdminEventControlPanel'
 import FeedbackQRModal from '../components/FeedbackQRModal'
 import { supabase } from '../lib/supabase'
@@ -595,6 +596,12 @@ export default function AdminDashboardPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-2">
+                      <Link
+                        to={`/admin/events/${row.id}/feedback`}
+                        className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-800"
+                      >
+                        View Feedback
+                      </Link>
                       <button
                         type="button"
                         onClick={() => setQrModalEventId(row.id)}

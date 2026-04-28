@@ -4,6 +4,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import EventDetailsPage from './pages/EventDetailsPage'
 import EventsPage from './pages/EventsPage'
 import FeedbackPage from './pages/FeedbackPage'
+import FeedbackResultsPage from './pages/FeedbackResultsPage'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 
@@ -71,6 +72,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/events/:eventId/feedback"
+          element={
+            <ProtectedRoute>
+              <FeedbackResultsPage />
             </ProtectedRoute>
           }
         />
