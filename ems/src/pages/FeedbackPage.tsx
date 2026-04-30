@@ -8,20 +8,11 @@ type EventRow = {
   name: string
 }
 
-type FeedbackRow = {
-  id: number
-  event_id: number
-  attendee_id: number
-  rating: number
-  comment: string | null
-}
-
 export default function FeedbackPage() {
   const { eventId } = useParams<{ eventId: string }>()
 
   const [event, setEvent] = useState<EventRow | null>(null)
   const [attendeeId, setAttendeeId] = useState<number | null>(null)
-  const [existingFeedback, setExistingFeedback] = useState<FeedbackRow | null>(null)
 
   const [step, setStep] = useState<'loading' | 'email' | 'error' | 'alreadySubmitted' | 'feedbackForm' | 'thankYou'>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -134,7 +125,6 @@ export default function FeedbackPage() {
     }
 
     if (feedbackData) {
-      setExistingFeedback(feedbackData as FeedbackRow)
       setStep('alreadySubmitted')
       setEmailSubmitting(false)
       return
