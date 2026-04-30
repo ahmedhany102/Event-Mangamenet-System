@@ -11,7 +11,7 @@ export default function FeedbackQRModal({ eventId, eventName, onClose }: Feedbac
   const canvasRef = useRef<HTMLDivElement>(null)
   const [copyState, setCopyState] = useState<'idle' | 'done'>('idle')
 
-  const feedbackUrl = `http://localhost:5173/feedback/${eventId}`
+  const feedbackUrl = `${window.location.origin}/feedback/${eventId}`
 
   const handleDownload = useCallback(() => {
     const canvas = canvasRef.current?.querySelector('canvas')
