@@ -87,22 +87,22 @@ export default function FeedbackPage() {
 
     const foundAttendeeId = (attendeeData as { id: number }).id
 
-    // 2. Check ticket for this event with is_checked_in = true
-    const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select('is_checked_in')
+    // 2. Check event_attendees for attended status
+    const { data: eventAttendeeData, error: eventAttendeeError } = await supabase
+      .from('event_attendees')
+      .select('attendance_status')
       .eq('event_id', eventNum)
       .eq('attendee_id', foundAttendeeId)
       .maybeSingle()
 
-    if (ticketError || !ticketData) {
+    if (eventAttendeeError || !eventAttendeeData) {
       setErrorMessage('You are not registered or have not checked in to this event.')
       setStep('error')
       setEmailSubmitting(false)
       return
     }
 
-    if (!(ticketData as { is_checked_in: boolean }).is_checked_in) {
+    if ((eventAttendeeData as { attendance_status: string }).attendance_status !== 'attended') {
       setErrorMessage('You are not registered or have not checked in to this event.')
       setStep('error')
       setEmailSubmitting(false)

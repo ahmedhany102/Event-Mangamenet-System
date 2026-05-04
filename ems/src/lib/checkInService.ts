@@ -68,6 +68,15 @@ export async function checkInByEvent({ selectedEventId, rawInput }: CheckInParam
 
   const checkedInAt = new Date().toISOString()
 
+  const { error: ticketUpdateError } = await supabase
+    .from('tickets')
+    .update({ is_checked_in: true })
+    .eq('id', ticket.id)
+
+  if (ticketUpdateError) {
+    throw new Error(ticketUpdateError.message)
+  }
+
   const { error: attendanceUpdateError } = await supabase
     .from('event_attendees')
     .update({

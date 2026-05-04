@@ -1,4 +1,0 @@
-CREATE TABLE IF NOT EXISTS public.organizations (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL
-);
