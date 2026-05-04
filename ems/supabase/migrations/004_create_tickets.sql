@@ -1,30 +1,13 @@
-CREATE TABLE IF NOT EXISTS public.tickets (
-  id BIGSERIAL PRIMARY KEY,
-  event_id BIGINT NOT NULL,
-  attendee_id BIGINT NOT NULL,
-  ticket_code TEXT NOT NULL,
-  is_checked_in BOOLEAN NOT NULL DEFAULT false,
-  issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_tickets_event
-    FOREIGN KEY (event_id)
-    REFERENCES public.events(id)
-    ON DELETE CASCADE,
-  CONSTRAINT fk_tickets_attendee
-    FOREIGN KEY (attendee_id)
-    REFERENCES public.attendees(id)
-    ON DELETE CASCADE,
-  CONSTRAINT uq_tickets_event_attendee
-    UNIQUE (event_id, attendee_id),
-  CONSTRAINT uq_tickets_ticket_code
-    UNIQUE (ticket_code)
+CREATE TABLE public.tickets (
+id bigint NOT NULL DEFAULT nextval('tickets_id_seq'::regclass),
+event_id bigint NOT NULL,
+attendee_id bigint NOT NULL,
+ticket_code text NOT NULL UNIQUE,
+issued_at timestamp with time zone NOT NULL DEFAULT now(),
+is_checked_in boolean NOT NULL DEFAULT false,
+CONSTRAINT tickets_pkey PRIMARY KEY (id),
+CONSTRAINT fk_tickets_event
+FOREIGN KEY (event_id) REFERENCES public.events(id),
+CONSTRAINT fk_tickets_attendee
+FOREIGN KEY (attendee_id) REFERENCES public.attendees(id)
 );
-
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "dev_full_access_tickets" ON public.tickets;
-
-CREATE POLICY "dev_full_access_tickets"
-ON public.tickets
-FOR ALL
-USING (true)
-WITH CHECK (true);

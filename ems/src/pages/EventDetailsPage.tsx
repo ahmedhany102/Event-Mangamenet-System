@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import EventAnnouncements from '../components/EventAnnouncements'
 import FeedbackQRModal from '../components/FeedbackQRModal'
 import { supabase } from '../lib/supabase'
 
@@ -415,6 +416,10 @@ export default function EventDetailsPage() {
                 Event Full
               </p>
             ) : null}
+
+            <div className="mt-6">
+              <EventAnnouncements eventId={event.id} />
+            </div>
           </article>
 
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

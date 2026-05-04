@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { checkInByEvent } from '../../lib/checkInService'
 import { supabase } from '../../lib/supabase'
+import AnnouncementsSection from './AnnouncementsSection'
 
 type EventRow = {
   id: number
@@ -702,6 +703,8 @@ export default function AdminEventControlPanel({ eventId, onBack, onDataChanged 
               </table>
             </div>
           </article>
+
+          <AnnouncementsSection eventId={eventId} />
         </div>
       ) : null}
 
