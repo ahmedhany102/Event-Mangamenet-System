@@ -1,22 +1,10 @@
-CREATE TABLE IF NOT EXISTS public.announcements (
-  id BIGSERIAL PRIMARY KEY,
-  event_id BIGINT NOT NULL,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  image_url TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_announcements_event
-    FOREIGN KEY (event_id)
-    REFERENCES public.events(id)
-    ON DELETE CASCADE
-);
-
-ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "dev_full_access_announcements" ON public.announcements;
-
-CREATE POLICY "dev_full_access_announcements"
-ON public.announcements
-FOR ALL
-USING (true)
-WITH CHECK (true);
+create table public.announcements (
+  id bigserial not null,
+  event_id bigint not null,
+  title text not null,
+  content text not null,
+  image_url text null,
+  created_at timestamp with time zone not null default now(),
+  constraint announcements_pkey primary key (id),
+  constraint fk_announcements_event foreign KEY (event_id) references events (id) on delete CASCADE
+)
